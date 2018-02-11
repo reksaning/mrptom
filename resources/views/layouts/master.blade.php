@@ -9,7 +9,7 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>Tani Organik Merapi</title>
+    <title>{{ env('APP_NAME') }}</title>
 
     {{-- bootstrap --}}
     <link rel="stylesheet" href="/css/bootstrap.min.css">

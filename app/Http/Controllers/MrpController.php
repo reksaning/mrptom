@@ -86,5 +86,33 @@ class MrpController extends Controller
         return view('mrp.index',compact('demand','commodities','packagings', 'forecasts','lastMonth', 'lastMonthNeed', 'leadTime','lastMonthOrder', 'method', 'kebutuhan', 'outlets', 'monthly', 'monthlyKg', 'nama', 'lastMonthOrderKemasan','selisih'));
     }
 
+    public function test(Demand $demand)
+    {
+        $commodities = Commodity::all();
+        $outlets = Outlet::all();
+
+        foreach ($commodities as $commodity) {
+            foreach ($outlets as $outlet) {
+                // $boms[$key]=Bom::where('commodity_id', request('commodity_id'))->where('outlet_id', request('outlet_id'))->first()->quantity;
+
+                $mrp = [
+                    $demand->movingAverage($commodity->id, $outlet->id),
+                    // $demand->SES($commodity->id, $outlet->id),
+                    // $demand->DES($commodity->id, $outlet->id),
+                ];
+
+                $collection = collect($mrp);
+
+                $val = $collection->sortBy('error')->first();
+
+                $forecasts[$commodity->name][$outlet->name] = $val;
+                $method[$commodity->id][$outlet->id] = $val['method'];
+                $selisih[$commodity->id][$outlet->id] = $val['error'];
+            }
+        }
+
+        return $forecasts;
+    }
+
 
 }
