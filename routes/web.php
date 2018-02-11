@@ -90,6 +90,7 @@ Route::delete('/lahan/{lahan}','LahanController@destroy');
 Route::get('/forecast', 'ForecastController@index')->name('forecast');
 Route::post('/forecast','ForecastController@index');
 Route::get('/mrp', 'MrpController@index')->name('Mrp');
+Route::get('/mrp/test', 'MrpController@test')->name('mrp.test');
 Route::get('/forecast/test', 'ForecastController@test');
 
 Route::get('/test', function()

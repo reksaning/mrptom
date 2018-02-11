@@ -19,85 +19,93 @@ class Demand extends Model
 		return $this->date->format('Y-m');
 	}
 
-	public function getPusatIdAttribute()
+	public static function getMonth($commodityId)
 	{
-		return $this->outlet->pusat_id;
+		return static::where('commodity_id', $commodityId)
+			->where('outlet_id', $outletId)->orderBy('date', 'desc')
+			->get()
+			->take(90)
+			->sortBy('date')
+			->pluck('date')
+			->unique()
+			->values();
 	}
 
-	public static function getMonth($month = 36)
-	{
-		return static::where('commodity_id', request('commodity_id'))->orderBy('date', 'desc')->get()->where('pusat_id', request('pusat_id'))->take($month)->sortBy('bulan')->pluck('bulan')->unique()->values();
-	}
-
-	public static function dekomposisi()
+	public static function dekomposisi($commodityId, $outletId)
 	{
 		// nilai x = quantity bulan
-		$x = Demand::where('commodity_id', request('commodity_id'))->get()->where('pusat_id', request('pusat_id'))->pluck('bulan')->unique()->count();
-		$val['x'] = 0;
-		$val['x2'] = 0;
+		// $x = Demand::where('commodity_id', $commodityId)->where('outlet_id', $outletId)->get()->pluck('bulan')->unique()->count();
+		// $val['x'] = 0;
+		// $val['x2'] = 0;
 
 
 		//nilai variabel x1+x2+x3 & x1kuadrat
-		for ($i=1; $i < $x+1; $i++) { 
-			$val['x'] += $i;
-			$val['x2'] += pow($i, 2);
-		}
+		// for ($i=1; $i < $x+1; $i++) { 
+		// 	$val['x'] += $i;
+		// 	$val['x2'] += pow($i, 2);
+		// }
 
 		// quantity total transaksi
-		$val['y'] = Demand::where('commodity_id', request('commodity_id'))->get()->where('pusat_id', request('pusat_id'))->sum('quantity');
+		// $val['y'] = Demand::where('commodity_id', $commodityId)->where('outlet_id', $outletId)->get()->sum('quantity');
 
 		// nilai perbulan dikali
 		$n = 1;
 		$val['xy'] = 0;
+
+		$demands = Demand::where('commodity_id', $commodityId)->where('outlet_id', $outletId)->orderBy('date', 'desc')->take(90)->get();
+
+		if (empty($demands->first())) {
+			$val['sumy'] = [0];
+		}
 		
-		foreach (Demand::getMonth() as $bulan) {
+		foreach ($demands as $demand) {
 			
-			$val['sumy'][$n] = Demand::where('date', 'like', "%$bulan%")->where('commodity_id', request('commodity_id'))->get()->where('pusat_id', request('pusat_id'))->sum('quantity');
-			$val['xy'] += $n*$val['sumy'][$n];
+			$val['sumy'][$n] = $demand->quantity;
+			// $val['xy'] += $n*$val['sumy'][$n];
 			$n++;
 
 		}
 
-		$val['a']=($val['xy']*$val['x']-$val['y']*$val['x2'])/(pow($val['x'], 2)-$val['x2']*$x);
-		$val['b']=($val['y']-$val['a']*$x)/$val['x'];
+		// $val['a']=($val['xy']*$val['x']-$val['y']*$val['x2'])/(pow($val['x'], 2)-$val['x2']*$x);
+		// $val['b']=($val['y']-$val['a']*$x)/$val['x'];
 		
 		//rumus hasil peramalan Trend Linear
 
 		
 		// $val['x3'] = 0;
-		for ($i=1; $i <= $x; $i++) { 
-			$Y[$i] = $val['a']+$val['b']*$i;
-		}
+		// for ($i=1; $i <= $x; $i++) { 
+		// 	$Y[$i] = $val['a']+$val['b']*$i;
+		// }
 
-		$val['Y'] = $Y;
+		// $val['Y'] = $Y;
 
-		$a=1;
-		foreach ($val['sumy'] as $sumy) {
-			$koef[$a]=$sumy/100;
-							// $Y[$a]
-			$a++;
-		}
-		$val['koef']=$koef;
+		// $a=1;
+		// foreach ($val['sumy'] as $sumy) {
+		// 	$koef[$a]=$sumy/100;
+		// 					// $Y[$a]
+		// 	$a++;
+		// }
+		// $val['koef']=$koef;
 
 		//error
-		for ($i=1; $i <= $x; $i++) { 
-				$H[$i] = number_format(($val['a']+$val['b']*$i)*$koef[$i], 0);
-				$error[$i] = $H[$i];
-							 // - $sumy[$i]
-		}
+		// for ($i=1; $i <= $x; $i++) { 
+		// 		$H[$i] = number_format(($val['a']+$val['b']*$i)*$koef[$i], 0);
+		// 		$error[$i] = $H[$i];
+		// 					 // - $sumy[$i]
+		// }
 
-		$val['error'] = array_sum($error);
+		// $val['error'] = array_sum($error);
 
 
-		if (request()->has('periode')) {
-			$periode=request('periode');
-			$a = 1;
-			for ($i=$x+1; $i <= $x+$periode; $i++) { 
-				$H[$i] = number_format(($val['a']+$val['b']*$i)*$koef[$a], 0);
-				$a++;
-			}
-			$val['H'] = $H;
-		}
+		// if (request()->has('periode')) {
+		// 	$periode=request('periode');
+		// 	$a = 1;
+		// 	for ($i=$x+1; $i <= $x+$periode; $i++) { 
+		// 		$H[$i] = number_format(($val['a']+$val['b']*$i)*$koef[$a], 0);
+		// 		$a++;
+		// 	}
+		// 	$val['H'] = $H;
+		// }
 	
 		// return array_values($val['H']);
 		$val['method'] = 'dekomposisi';
@@ -123,11 +131,21 @@ class Demand extends Model
 	// }
 
 
-	public static function movingAverage()
+	public function movingAverage($commodityId, $outletId)
 	{
-		$val = Demand::dekomposisi();
+		$val = Demand::dekomposisi($commodityId, $outletId);
+
+		if (empty($val['sumy'])) {
+			dd($commodityId, $outletId);
+		}
+
 		$sumy = $val['sumy'];
-		
+
+		if (count($sumy) < 4) {
+			$MA = 0;
+			$error = [10000];
+		}
+
 		for ($n=4; $n <= count($sumy);) { 
 			$MA[$n] = ($sumy[$n-3]+$sumy[$n-2]+$sumy[$n-1])/3;
 
@@ -138,6 +156,10 @@ class Demand extends Model
 		$val['H'] = $MA;
 		$val['error'] = (array_sum($error))/count($sumy);
 
+		if (count($sumy) > 5) {
+			$val['R'] = $this->forecast('MA', $val['H'], 3);
+		}
+
 		$val['method'] = 'movingAverage';
 		return $val;
 		
@@ -145,10 +167,12 @@ class Demand extends Model
 
 
 
-	public static function SES()
+	public function SES($commodityId, $outletId)
 	{
 
-		$val = Demand::dekomposisi();
+		$val = Demand::dekomposisi($commodityId, $outletId);
+
+
 		$sumy = $val['sumy'];
 		$alpas=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9];
 
@@ -186,15 +210,10 @@ class Demand extends Model
 
 	}
 
-
-
-
-
-
-	public static function DES()
+	public function DES($commodityId, $outletId)
 	{
 
-		$val = Demand::dekomposisi();
+		$val = Demand::dekomposisi($commodityId, $outletId);
 		$sumy = $val['sumy'];
 
 		$alpas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
@@ -217,9 +236,6 @@ class Demand extends Model
 
 		       		$error[$m][$i] = abs($sumy[$i-1]-$SES[$m][$i]);
 		       		$i++;
-
-
-
 				}
 
 				$res ["$n$m"] = [
@@ -279,6 +295,26 @@ class Demand extends Model
 		// }
 
 		// return ($val['H']);
+
+	public function forecast($method, array $H, $n)
+	{
+		switch ($method) {
+			case 'MA':
+				$R = array();
+				$key = collect($H)->keys()->last();
+                for ($i=$key+1; $i <= $key+$n ; $i++) { 
+                	$R[$i] = collect([$H[$i-3], $H[$i-1], $H[$i-2]])->avg();
+                	$H[$i] = $R[$i];
+                }
+
+                return $R;
+				break;
+			
+			default:
+				# code...
+				break;
+		}
+	}
 			
 		
 
@@ -286,6 +322,6 @@ class Demand extends Model
 	
 
 	protected $dates = ['date'];
-	protected $appends = ['bulan', 'pusat_id'];
+	protected $appends = ['bulan', 'outlet_id'];
 }
 
